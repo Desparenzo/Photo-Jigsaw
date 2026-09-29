@@ -1,0 +1,671 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Zen Blocks - Minimalist Puzzle</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      background-color: #030712;
+      color: #f8fafc;
+    }
+    canvas {
+      touch-action: none; /* Prevents scroll/zoom while dragging */
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col overflow-hidden">
+
+  <!-- Minimal Header -->
+  <header class="w-full px-5 py-3 flex items-center justify-between border-b border-zinc-900 bg-black/60 backdrop-blur-md z-10">
+    <div class="text-[10px] tracking-[0.2em] font-semibold text-zinc-500">ZEN BLOCKS</div>
+    <div class="flex gap-3">
+      <button id="resetBtn" class="text-xs font-medium px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors hidden">
+        <i class="fa-solid fa-rotate-right"></i>
+      </button>
+      <button id="homeBtn" class="text-xs font-medium px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white transition-colors hidden">
+        <i class="fa-solid fa-arrow-left mr-1"></i> BACK
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport -->
+  <main class="flex-grow w-full max-w-lg mx-auto flex flex-col items-center justify-center p-4 relative h-full">
+    
+    <!-- MENU / IMPORT STATE -->
+    <div id="welcomeScreen" class="w-full flex flex-col items-center gap-10 transition-opacity duration-300">
+      <div class="text-center">
+        <h1 class="text-2xl font-light tracking-widest text-white mb-3">BLOCK PUZZLE</h1>
+        <p class="text-[11px] text-zinc-500 max-w-[280px] mx-auto leading-relaxed">
+          Import a photo. Drag blocks from the tray. Place true neighbor pieces next to each other to combine them into clusters. No hints, pure focus.
+        </p>
+      </div>
+
+      <div class="w-full max-w-sm bg-zinc-950 p-6 rounded-2xl border border-zinc-900 flex flex-col gap-5">
+        <div class="grid grid-cols-3 gap-3">
+          <button data-diff="easy" class="diff-btn py-4 rounded-xl border border-zinc-700 bg-zinc-900 transition-colors text-white text-center">
+            <div class="text-xs font-semibold mb-1">Easy</div>
+            <div class="text-[9px] text-zinc-400">36 BLOCKS</div>
+            <div class="text-[8px] text-zinc-600 mt-0.5">6 × 6</div>
+          </button>
+          <button data-diff="medium" class="diff-btn py-4 rounded-xl border border-zinc-900 bg-zinc-950 hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white text-center">
+            <div class="text-xs font-semibold mb-1">Medium</div>
+            <div class="text-[9px] text-zinc-500">64 BLOCKS</div>
+            <div class="text-[8px] text-zinc-600 mt-0.5">8 × 8</div>
+          </button>
+          <button data-diff="hard" class="diff-btn py-4 rounded-xl border border-zinc-900 bg-zinc-950 hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-white text-center">
+            <div class="text-xs font-semibold mb-1">Hard</div>
+            <div class="text-[9px] text-zinc-500">100 BLOCKS</div>
+            <div class="text-[8px] text-zinc-600 mt-0.5">10 × 10</div>
+          </button>
+        </div>
+
+        <label class="cursor-pointer w-full py-4 bg-zinc-200 hover:bg-white text-black text-xs font-bold tracking-wider rounded-xl text-center transition-all flex justify-center items-center gap-2">
+          <i class="fa-solid fa-plus"></i> IMPORT PHOTO
+          <input type="file" id="imageInput" class="hidden" accept="image/*" />
+        </label>
+      </div>
+    </div>
+
+    <!-- GAME BOARD STATE -->
+    <div id="gameScreen" class="w-full flex-grow flex flex-col items-center justify-center hidden opacity-0 transition-opacity duration-300">
+      <div id="canvasContainer" class="relative w-full aspect-[2/3] max-w-[420px] max-h-[80vh] rounded-xl overflow-hidden border border-zinc-800 bg-black shadow-2xl">
+        <canvas id="gameCanvas" width="600" height="900" class="w-full h-full block"></canvas>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- WIN DIALOG MODAL -->
+  <div id="successOverlay" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-500">
+    <div class="bg-zinc-950 border border-zinc-800 rounded-2xl p-8 max-w-xs w-full text-center scale-95 transition-transform duration-500" id="successBox">
+      <i class="fa-regular fa-circle-check text-4xl text-zinc-600 mb-4"></i>
+      <h3 class="text-lg font-medium tracking-widest text-white mb-2">COMPLETE</h3>
+      <p class="text-xs text-zinc-500 mb-8">Clarity achieved.</p>
+      
+      <div class="flex flex-col gap-3">
+        <label class="cursor-pointer w-full py-3 bg-zinc-200 text-black text-xs font-bold tracking-wider rounded-lg transition-colors">
+          NEW PUZZLE
+          <input type="file" id="successImageInput" class="hidden" accept="image/*" />
+        </label>
+        <button id="closeSuccessBtn" class="w-full py-3 text-xs tracking-wider text-zinc-500 hover:text-white transition-colors">
+          VIEW BOARD
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Engine Constants & Canvas Setup ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Internal coordinate system (scales flawlessly to actual screen via CSS aspect-ratio)
+    const CANVAS_W = 600;
+    const CANVAS_H = 900;
+    
+    // Board logic constraints
+    let boardW = 600;
+    let boardH = 600; 
+    
+    // Delivery tray origin
+    const TRAY_X = 300;
+    let TRAY_Y = 750;
+
+    // Config
+    let difficulty = 'easy'; 
+    let rows = 6;
+    let cols = 6;
+    
+    // Data architecture
+    let puzzleImage = null; 
+    let pieces = [];
+    let trayQueue = [];
+    let activeGroupId = null; 
+    let celebrationTriggered = false;
+    let particles = [];
+    
+    // Physics / Drag State
+    let isDragging = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    // Snap & Pull Tolerances
+    const SNAP_TO_BOARD_DIST = 25; 
+    const CLUSTER_MERGE_DIST = 25; 
+    const TRAY_PULL_DIST = 35; 
+
+    // Piece states
+    const STATES = {
+      TRAY: 0,
+      LOOSE: 1,
+      SNAPPED: 2
+    };
+
+    // --- Image Processing & Dynamic Aspect Fit ---
+    function processImage(img) {
+      const srcW = img.width;
+      const srcH = img.height;
+      let rotated = false;
+
+      // Smart orientation: Portrait is optimal for mobile puzzles
+      if (srcW > srcH) rotated = true;
+
+      const tmpCanvas = document.createElement('canvas');
+      const tmpCtx = tmpCanvas.getContext('2d');
+
+      if (rotated) {
+        tmpCanvas.width = srcH;
+        tmpCanvas.height = srcW;
+        tmpCtx.translate(srcH, 0);
+        tmpCtx.rotate(Math.PI / 2);
+        tmpCtx.drawImage(img, 0, 0);
+      } else {
+        tmpCanvas.width = srcW;
+        tmpCanvas.height = srcH;
+        tmpCtx.drawImage(img, 0, 0);
+      }
+
+      // Calculate perfect layout height to keep width fixed at 600
+      const aspect = tmpCanvas.height / tmpCanvas.width;
+      const clampedAspect = Math.max(0.7, Math.min(1.3, aspect));
+      
+      boardW = CANVAS_W;
+      boardH = Math.round(boardW * clampedAspect);
+      TRAY_Y = boardH + ((CANVAS_H - boardH) / 2);
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = boardW;
+      finalCanvas.height = boardH;
+      const finalCtx = finalCanvas.getContext('2d');
+      finalCtx.drawImage(tmpCanvas, 0, 0, tmpCanvas.width, tmpCanvas.height, 0, 0, boardW, boardH);
+
+      puzzleImage = finalCanvas;
+
+      // Swap views seamlessly
+      document.getElementById('welcomeScreen').classList.add('hidden');
+      document.getElementById('welcomeScreen').classList.replace('opacity-100', 'opacity-0');
+      
+      const gameScreen = document.getElementById('gameScreen');
+      gameScreen.classList.remove('hidden');
+      setTimeout(() => gameScreen.classList.replace('opacity-0', 'opacity-100'), 50);
+
+      document.getElementById('resetBtn').classList.remove('hidden');
+      document.getElementById('homeBtn').classList.remove('hidden');
+
+      initGame();
+    }
+
+    // --- Game Logic & Grid Construction ---
+    function initGame() {
+      if (!puzzleImage) return;
+
+      if (difficulty === 'easy') { rows = 6; cols = 6; }
+      else if (difficulty === 'medium') { rows = 8; cols = 8; }
+      else if (difficulty === 'hard') { rows = 10; cols = 10; }
+
+      const pieceW = boardW / cols;
+      const pieceH = boardH / rows;
+
+      pieces = [];
+      trayQueue = [];
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          
+          // Under-the-hood strict serial numeric ID logic for adjacency mapping
+          const serialId = r * cols + c;
+
+          const pCanvas = document.createElement('canvas');
+          pCanvas.width = Math.ceil(pieceW);
+          pCanvas.height = Math.ceil(pieceH);
+          const pCtx = pCanvas.getContext('2d');
+
+          pCtx.drawImage(puzzleImage, c * pieceW, r * pieceH, pieceW, pieceH, 0, 0, pieceW, pieceH);
+          
+          pCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+          pCtx.lineWidth = 1;
+          pCtx.strokeRect(0, 0, pieceW, pieceH);
+
+          pieces.push({
+            id: serialId,
+            r: r,
+            c: c,
+            targetX: c * pieceW + pieceW / 2,
+            targetY: r * pieceH + pieceH / 2,
+            currX: TRAY_X,
+            currY: TRAY_Y,
+            w: pieceW,
+            h: pieceH,
+            canvas: pCanvas,
+            state: STATES.TRAY,
+            groupId: serialId // Each piece is born in its own isolated cluster
+          });
+        }
+      }
+
+      // Prepare randomly shuffled delivery queue
+      const ids = pieces.map(p => p.id);
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+      trayQueue = ids;
+
+      activeGroupId = null;
+      isDragging = false;
+      celebrationTriggered = false;
+      particles = [];
+    }
+
+    // --- High Performance Render Cycle ---
+    function render() {
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+      if (puzzleImage) {
+        // 1. Base Workspace Board
+        ctx.fillStyle = '#020617'; 
+        ctx.fillRect(0, 0, boardW, boardH);
+
+        // 2. Blueprint Grids
+        ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+        ctx.lineWidth = 1;
+        const pw = boardW / cols;
+        const ph = boardH / rows;
+        for (let r = 1; r < rows; r++) {
+          ctx.beginPath(); ctx.moveTo(0, r * ph); ctx.lineTo(boardW, r * ph); ctx.stroke();
+        }
+        for (let c = 1; c < cols; c++) {
+          ctx.beginPath(); ctx.moveTo(c * pw, 0); ctx.lineTo(c * pw, boardH); ctx.stroke();
+        }
+
+        // 3. Render SNAPPED blocks (Bottom-most layer, perfectly flush)
+        pieces.forEach(p => {
+          if (p.state === STATES.SNAPPED) {
+            ctx.drawImage(p.canvas, p.targetX - p.w / 2, p.targetY - p.h / 2);
+          }
+        });
+
+        // 4. Interface Dividing Line & Stats
+        ctx.strokeStyle = '#18181b';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, boardH);
+        ctx.lineTo(CANVAS_W, boardH);
+        ctx.stroke();
+
+        const snappedCount = pieces.filter(p => p.state === STATES.SNAPPED).length;
+        ctx.fillStyle = '#52525b';
+        ctx.font = '500 10px "Inter", sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`SNAPPED: ${snappedCount} / ${pieces.length}`, 20, boardH + 20);
+
+        // 5. Tray Spotlight
+        ctx.save();
+        const trayGlow = ctx.createRadialGradient(TRAY_X, TRAY_Y, 0, TRAY_X, TRAY_Y, 60);
+        trayGlow.addColorStop(0, 'rgba(255,255,255,0.03)');
+        trayGlow.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = trayGlow;
+        ctx.beginPath();
+        ctx.arc(TRAY_X, TRAY_Y, 60, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 6. Current piece in TRAY
+        const currentTrayPieceId = trayQueue.length > 0 ? trayQueue[0] : null;
+        if (currentTrayPieceId !== null) {
+          const tp = pieces[currentTrayPieceId];
+          if (tp.groupId !== activeGroupId) {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetY = 4;
+            ctx.drawImage(tp.canvas, tp.currX - tp.w / 2, tp.currY - tp.h / 2);
+            ctx.restore();
+          }
+        }
+
+        // 7. LOOSE pieces on the workspace (Unsnapped clusters & pieces)
+        pieces.forEach(p => {
+          if (p.state === STATES.LOOSE && p.groupId !== activeGroupId) {
+            ctx.save();
+            ctx.shadowColor = 'rgba(0,0,0,0.6)';
+            ctx.shadowBlur = 12;
+            ctx.shadowOffsetY = 6;
+            ctx.drawImage(p.canvas, p.currX - p.w / 2, p.currY - p.h / 2);
+            ctx.restore();
+          }
+        });
+
+        // 8. ACTIVE group being dragged (Highest Z-Index)
+        if (activeGroupId !== null) {
+          pieces.forEach(p => {
+            if (p.groupId === activeGroupId) {
+              ctx.save();
+              ctx.shadowColor = 'rgba(0,0,0,0.9)';
+              ctx.shadowBlur = 25;
+              ctx.shadowOffsetY = 15;
+              // Visual hover scale
+              const s = 1.05;
+              const drawW = p.w * s;
+              const drawH = p.h * s;
+              ctx.drawImage(p.canvas, p.currX - drawW / 2, p.currY - drawH / 2, drawW, drawH);
+              ctx.restore();
+            }
+          });
+        }
+
+        // Win Verification
+        if (snappedCount === pieces.length && !celebrationTriggered) {
+          celebrationTriggered = true;
+          triggerWin();
+        }
+      }
+
+      updateAndDrawParticles();
+      requestAnimationFrame(render);
+    }
+
+    // --- Input & Physics Vectors ---
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (CANVAS_W / rect.width),
+        y: (clientY - rect.top) * (CANVAS_H / rect.height)
+      };
+    }
+
+    function onPointerDown(e) {
+      if (celebrationTriggered) return;
+      const pos = getPointerPos(e);
+      let targetPiece = null;
+
+      // Search top-most LOOSE pieces
+      for (let i = pieces.length - 1; i >= 0; i--) {
+        const p = pieces[i];
+        if (p.state === STATES.LOOSE) {
+          if (Math.abs(pos.x - p.currX) < p.w / 2 + 10 && 
+              Math.abs(pos.y - p.currY) < p.h / 2 + 10) {
+            targetPiece = p;
+            break;
+          }
+        }
+      }
+
+      // Fallback search to TRAY piece
+      if (!targetPiece && trayQueue.length > 0) {
+        const tp = pieces[trayQueue[0]];
+        if (Math.abs(pos.x - tp.currX) < tp.w / 2 + 15 && 
+            Math.abs(pos.y - tp.currY) < tp.h / 2 + 15) {
+          targetPiece = tp;
+        }
+      }
+
+      if (targetPiece) {
+        isDragging = true;
+        activeGroupId = targetPiece.groupId;
+        lastPointer = pos;
+        if (e.cancelable) e.preventDefault();
+      }
+    }
+
+    function onPointerMove(e) {
+      if (!isDragging || activeGroupId === null) return;
+      const pos = getPointerPos(e);
+      
+      const dx = pos.x - lastPointer.x;
+      const dy = pos.y - lastPointer.y;
+      lastPointer = pos;
+
+      let isTrayPieceInGroup = false;
+
+      // Move entire associated group logically
+      pieces.forEach(p => {
+        if (p.groupId === activeGroupId) {
+          p.currX += dx;
+          p.currY += dy;
+          
+          p.currX = Math.max(10, Math.min(CANVAS_W - 10, p.currX));
+          p.currY = Math.max(10, Math.min(CANVAS_H - 10, p.currY));
+
+          if (p.state === STATES.TRAY) isTrayPieceInGroup = true;
+        }
+      });
+
+      // TRAY Extraction Mechanics
+      if (isTrayPieceInGroup) {
+        const tp = pieces[trayQueue[0]];
+        const distFromTrayCenter = Math.hypot(tp.currX - TRAY_X, tp.currY - TRAY_Y);
+        if (distFromTrayCenter > TRAY_PULL_DIST) {
+          tp.state = STATES.LOOSE;
+          trayQueue.shift(); 
+        }
+      }
+
+      if (e.cancelable) e.preventDefault();
+    }
+
+    function onPointerUp(e) {
+      if (!isDragging || activeGroupId === null) return;
+      
+      const droppedGroupId = activeGroupId;
+      isDragging = false;
+      activeGroupId = null;
+
+      const droppedGroupPieces = pieces.filter(p => p.groupId === droppedGroupId);
+
+      // Edge case handling: dropped straight back into tray without moving
+      const trayPieceInGroup = droppedGroupPieces.find(p => p.state === STATES.TRAY);
+      if (trayPieceInGroup) {
+        trayPieceInGroup.currX = TRAY_X;
+        trayPieceInGroup.currY = TRAY_Y;
+        return; 
+      }
+
+      // --- LOGIC 1: Absolute Board Snap ---
+      const refP = droppedGroupPieces[0];
+      const distToBoard = Math.hypot(refP.currX - refP.targetX, refP.currY - refP.targetY);
+
+      if (distToBoard < SNAP_TO_BOARD_DIST) {
+        droppedGroupPieces.forEach(p => {
+          p.state = STATES.SNAPPED;
+          p.currX = p.targetX;
+          p.currY = p.targetY;
+          spawnBurst(p.targetX, p.targetY);
+        });
+        return; 
+      }
+
+      // --- LOGIC 2: Strict Under-the-Hood Relational Adjacency Clustering ---
+      let merged = false;
+
+      for (let activePiece of droppedGroupPieces) {
+        for (let targetPiece of pieces) {
+          // Verify piece is in-play and NOT part of our current group
+          if (targetPiece.state === STATES.LOOSE && targetPiece.groupId !== activePiece.groupId) {
+            
+            // MATH RULE: Ensure they are true immediate neighbors in the original 3x3 layout logic
+            const rDiff = Math.abs(activePiece.r - targetPiece.r);
+            const cDiff = Math.abs(activePiece.c - targetPiece.c);
+
+            if (Math.max(rDiff, cDiff) === 1) {
+              
+              // Calculate PERFECT relative offset expected based on actual grid layout
+              const expectedDx = activePiece.targetX - targetPiece.targetX;
+              const expectedDy = activePiece.targetY - targetPiece.targetY;
+              
+              const expectedLocationX = targetPiece.currX + expectedDx;
+              const expectedLocationY = targetPiece.currY + expectedDy;
+
+              // Error distance between where it IS and where it SHOULD BE
+              const error = Math.hypot(expectedLocationX - activePiece.currX, expectedLocationY - activePiece.currY);
+
+              if (error < CLUSTER_MERGE_DIST) {
+                // Exact shift vector required to snap perfectly to the target
+                const shiftX = expectedLocationX - activePiece.currX;
+                const shiftY = expectedLocationY - activePiece.currY;
+
+                const newGroupId = targetPiece.groupId;
+
+                // Sync shift entirely
+                droppedGroupPieces.forEach(gp => {
+                  gp.currX += shiftX;
+                  gp.currY += shiftY;
+                  gp.groupId = newGroupId; 
+                });
+
+                spawnBurst(activePiece.currX, activePiece.currY);
+                merged = true;
+                break; 
+              }
+            }
+          }
+        }
+        if (merged) break; 
+      }
+
+      // --- LOGIC 3: Post-Merge Global Board Snap ---
+      // Ensures that bringing a cluster to the board triggers global completion snap
+      if (merged) {
+        const newRefP = pieces.find(p => p.id === refP.id);
+        const superGroup = pieces.filter(p => p.groupId === newRefP.groupId);
+        
+        const superDist = Math.hypot(newRefP.currX - newRefP.targetX, newRefP.currY - newRefP.targetY);
+        if (superDist < SNAP_TO_BOARD_DIST) {
+          superGroup.forEach(p => {
+            p.state = STATES.SNAPPED;
+            p.currX = p.targetX;
+            p.currY = p.targetY;
+            spawnBurst(p.targetX, p.targetY);
+          });
+        }
+      }
+    }
+
+    canvas.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', onPointerDown, {passive: false});
+    window.addEventListener('touchmove', onPointerMove, {passive: false});
+    window.addEventListener('touchend', onPointerUp);
+
+
+    // --- FX System ---
+    function spawnBurst(x, y) {
+      for(let i=0; i<6; i++){
+        const angle = Math.random() * Math.PI * 2;
+        const s = 0.5 + Math.random() * 2;
+        particles.push({
+          x: x, y: y,
+          vx: Math.cos(angle)*s, vy: Math.sin(angle)*s,
+          alpha: 1,
+          size: 1 + Math.random()*1.5
+        });
+      }
+    }
+
+    function updateAndDrawParticles() {
+      for(let i = particles.length - 1; i>=0; i--){
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.04;
+        if(p.alpha <= 0) {
+          particles.splice(i, 1);
+        } else {
+          ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function triggerWin() {
+      const modal = document.getElementById('successOverlay');
+      const box = document.getElementById('successBox');
+      modal.classList.remove('hidden');
+      setTimeout(() => {
+        modal.classList.remove('opacity-0');
+        box.classList.remove('scale-95');
+      }, 10);
+    }
+
+    // --- DOM UI Hookups ---
+    function handleFile(file) {
+      if(!file) return;
+      const r = new FileReader();
+      r.onload = e => {
+        const img = new Image();
+        img.onload = () => processImage(img);
+        img.src = e.target.result;
+      };
+      r.readAsDataURL(file);
+    }
+
+    document.getElementById('imageInput').addEventListener('change', e => handleFile(e.target.files[0]));
+    document.getElementById('successImageInput').addEventListener('change', e => {
+      document.getElementById('closeSuccessBtn').click();
+      handleFile(e.target.files[0]);
+    });
+
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        difficulty = e.currentTarget.getAttribute('data-diff');
+        document.querySelectorAll('.diff-btn').forEach(b => {
+          b.classList.replace('border-zinc-700', 'border-zinc-900');
+          b.classList.replace('bg-zinc-900', 'bg-zinc-950');
+          b.classList.replace('text-white', 'text-zinc-400');
+        });
+        e.currentTarget.classList.replace('border-zinc-900', 'border-zinc-700');
+        e.currentTarget.classList.replace('bg-zinc-950', 'bg-zinc-900');
+        e.currentTarget.classList.replace('text-zinc-400', 'text-white');
+      });
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      if(puzzleImage) initGame();
+    });
+
+    document.getElementById('homeBtn').addEventListener('click', () => {
+      puzzleImage = null;
+      const gameScreen = document.getElementById('gameScreen');
+      gameScreen.classList.replace('opacity-100', 'opacity-0');
+      setTimeout(() => {
+        gameScreen.classList.add('hidden');
+        document.getElementById('welcomeScreen').classList.remove('hidden');
+        document.getElementById('welcomeScreen').classList.replace('opacity-0', 'opacity-100');
+      }, 300);
+      document.getElementById('resetBtn').classList.add('hidden');
+      document.getElementById('homeBtn').classList.add('hidden');
+    });
+
+    document.getElementById('closeSuccessBtn').addEventListener('click', () => {
+      const modal = document.getElementById('successOverlay');
+      const box = document.getElementById('successBox');
+      modal.classList.add('opacity-0');
+      box.classList.add('scale-95');
+      setTimeout(() => modal.classList.add('hidden'), 500);
+    });
+
+    // Boot Up
+    render();
+  </script>
+</body>
+</html>
+
+
+```
